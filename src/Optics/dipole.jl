@@ -1,4 +1,13 @@
-using LazyGrids
+struct dipole <: Field
+    mat::MaterialParams
+    k₀::Number
+    pos::Vector{Number}
+    dip::Vector{Number}
+    
+    function dipole(material::MaterialParams,k₀::Number,pos,dip)
+        new(material,k₀,pos,dip)
+    end
+end
 
 function eplane(p::dipole,x,y, npad::Int64, z::Number)
     hx = x[2]-x[1]; Mx = npad*length(x)
@@ -26,12 +35,4 @@ function eplane(p::dipole,x,y, npad::Int64, z::Number)
     ie=[gx+im*kx.*gp;gy+im*ky.*gp;gz+im*kz.*gp]
     
     p.k₀^2 * ifourier2(x,y,reshape(ie,(Mx,My,3)))
-end
-
-function efieldC(angular,z)
-    ie = reshape(angular.iefield,(:,3))
-    kz = reshape(angular.kvec[3],(:,1))
-    ie = ie.*exp.(im*kz*z)
-    
-    ifourier2(angular.x,angular.y,reshape(ie,size(angular.iefield)))
 end

@@ -1,5 +1,3 @@
-using FFTW
-
 function wavefourier(M::Number)
     k = fftshift(2π/M * (0:M-1))
     k[k .> π] = k[k .> π] .- 2π 
