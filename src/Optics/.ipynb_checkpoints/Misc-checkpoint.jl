@@ -1,4 +1,3 @@
-
 function waveselect(kvec::Vector{Matrix{ComplexF64}},NA::Number)
     kvec = [reshape(kvec[1],(:,1)) reshape(kvec[2],(:,1)) reshape(kvec[3],(:,1))]
     k = sqrt(real(sum(kvec[1,:].^2)))
@@ -34,6 +33,27 @@ function cart2sph(x::Number,y::Number,z::Number)
 end
 
 function cart2unit(vec::Matrix{Number})
+    siz = size(vec)
+    vec = reshape(vec,(:,3))
+    vec = real.(vec)
+    sphVec = zeros(size(vec,1),2)
+    for i in axes(sphVec,1)
+        _,sphVec[i,1],sphVec[i,2] = cart2sph(vec[i,1],vec[i,2],vec[i,3])
+    end
+
+    θ,ϕ = sphVec[:,1],sphVec[:,2];
+    θ = π/2 .- θ
+    
+    sinθ, cosθ = sin.(θ),cos.(θ)
+    sinϕ, cosϕ = sin.(ϕ),cos.(ϕ)
+    uϕ = [-sinϕ cosϕ 0*ϕ]
+    ur = [cosϕ sinϕ 0*ϕ]
+    uθ = [cosϕ.*cosθ sinϕ.*cosθ -sinθ]
+    
+    return (uϕ,uθ,ur,ϕ,θ)
+end
+
+function cart2unit(vec::Matrix{Float64})
     siz = size(vec)
     vec = reshape(vec,(:,3))
     vec = real.(vec)

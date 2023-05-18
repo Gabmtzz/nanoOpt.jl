@@ -36,3 +36,17 @@ function eplane(p::dipole,x,y, npad::Int64, z::Number)
     
     p.k₀^2 * ifourier2(x,y,reshape(ie,(Mx,My,3)))
 end
+
+function farfield(dip::dipole,dir::Matrix{Float64})
+    k = dip.mat.k(dip.k₀)
+    position,dipol=dip.pos,dip.dip
+
+    dir = dir ./ sum(dir.*dir,dims=2)
+    
+    f = dip.k₀^2*exp.(-im*k*dir*position)/(4π)
+    
+    ex = f .* (dipol[1].-dir*dipol.*dir[:,1])
+    ey = f .* (dipol[2].-dir*dipol.*dir[:,2])
+    ez = f .* (dipol[3].-dir*dipol.*dir[:,3])
+    hcat(ex,ey,ez)
+end

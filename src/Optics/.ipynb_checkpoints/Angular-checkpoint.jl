@@ -9,7 +9,7 @@ struct Angular <: Field
     kx::Vector{Number}
     ky::Vector{Number}
     
-    function Angular(x,y,efield, mat, k0,dir,npad)
+    function Angular(x,y,efield, mat::MaterialParams, k0::Number,dir::Number,npad::Int64)
         k = mat.k(k0)
         Mx,My = npad*length(x),npad*length(y)
         iefield,kx,ky = fourier2(x,y,efield,Mx,My)
