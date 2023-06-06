@@ -51,3 +51,4 @@ function lglnodes(N)
 end
 
 include("focusHG00.jl")
+include("HermiteG.jl")

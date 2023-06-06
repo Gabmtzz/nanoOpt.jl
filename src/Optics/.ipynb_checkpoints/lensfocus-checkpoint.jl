@@ -2,17 +2,17 @@ struct lensfocus <: Field
     mat::MaterialParams
     k0::Number
     NA::Number
-    x::Vector{Number}
-    y::Vector{Number}
+    x::Vector{Float64}
+    y::Vector{Float64}
     rad::Number
-    ϕ::Vector{Number}
-    θ::Vector{Number}
-    ρ::Vector{Number}
+    ϕ::Vector{Float64}
+    θ::Vector{Float64}
+    ρ::Vector{Float64}
     
     function lensfocus(mat::MaterialParams,k0::Number,NA::Number)
         nrad,nphi = 51,51
         
-        n = mat.n(k₀)
+        n = mat.n(k0)
         θ = asin(NA/n)
         rad = sin(θ)
         ϕa = collect(range(0,2π,length=nphi))
