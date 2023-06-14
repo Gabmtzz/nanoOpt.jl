@@ -9,6 +9,10 @@ struct dipole <: Field
     end
 end
 
+function Dipoles(mat::MaterialParams,k0::Number,dip::Matrix{Float64},pos::Matrix{Float64})
+    [dipole(mat,k0,pos[i,:],dip[i,:]) for i in axes(dip,1)]
+end
+
 function eplane(p::dipole,x,y, npad::Int64, z::Number)
     hx = x[2]-x[1]; Mx = npad*length(x)
     hy = y[2]-y[1]; My = npad*length(y);
@@ -37,6 +41,18 @@ function eplane(p::dipole,x,y, npad::Int64, z::Number)
     p.k₀^2 * ifourier2(x,y,reshape(ie,(Mx,My,3)))
 end
 
+function eplane(Dipols::Vector{dipole},x,y, npad::Int64, z::Number)
+    Mx,My = npad*length(x),npad*length(y)
+    ef = zeros(Mx,My,3).*im
+
+    for dip ∈ Dipols
+        e = eplane(dip,x,y,npad,z)
+        ef = ef + e
+    end
+    
+    ef
+end
+
 function farfield(dip::dipole,dir::Matrix{Float64})
     k = dip.mat.k(dip.k₀)
     position,dipol=dip.pos,dip.dip
@@ -49,4 +65,14 @@ function farfield(dip::dipole,dir::Matrix{Float64})
     ey = f .* (dipol[2].-dir*dipol.*dir[:,2])
     ez = f .* (dipol[3].-dir*dipol.*dir[:,3])
     hcat(ex,ey,ez)
+end
+
+function farfield(Dipols::Vector{dipole},dir::Matrix{Float64})
+    farf = zeros(size(lens.dir))
+    for dip ∈ Dipols
+        e = farfield(dip,lens.dir)
+        farf = farf.+e
+    end
+    
+    farf
 end
