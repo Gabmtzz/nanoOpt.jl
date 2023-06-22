@@ -31,11 +31,11 @@ struct fresnel <: Field
         ε₁,μ₁ = layer.mat[ind].ε(k0),layer.mat[ind].μ(k0)
         ε₂,μ₂ = layer.mat[ind+1].ε(k0),layer.mat[ind+1].μ(k0)
 
-        kz1 = sqrt.(Complex.(μ₁*ε₁*k0^2 .- kpar.^2))
-        kz2 = sqrt.(Complex.(μ₂*ε₂*k0^2 .- kpar.^2))
+        kz1 = zsqrt.(Complex.(μ₁*ε₁*k0^2 .- kpar.^2))
+        kz2 = zsqrt.(Complex.(μ₂*ε₂*k0^2 .- kpar.^2))
 
-        Z₁ = sqrt(Complex(μ₁/ε₁))
-        Z₂ = sqrt(Complex(μ₂/ε₂))
+        Z₁ = zsqrt(Complex(μ₁/ε₁))
+        Z₂ = zsqrt(Complex(μ₂/ε₂))
         
         rTE = (μ₂.*kz1 - μ₁.*kz2) ./ (μ₂.*kz1 + μ₁.*kz2) 
         tTE = (2*μ₂.*kz1) ./ (μ₂.*kz1 + μ₁.*kz2) 
@@ -53,11 +53,11 @@ struct fresnel <: Field
         ε₁,μ₁ = slab.mat[ind].ε(k0),slab.mat[ind].μ(k0)
         ε₂,μ₂ = slab.mat[ind+1].ε(k0),slab.mat[ind+1].μ(k0)
 
-        kz1 = sqrt.(Complex.(μ₁*ε₁*k0^2 .- kpar.^2))
-        kz2 = sqrt.(Complex.(μ₂*ε₂*k0^2 .- kpar.^2))
+        kz1 = zsqrt.(Complex.(μ₁*ε₁*k0^2 .- kpar.^2))
+        kz2 = zsqrt.(Complex.(μ₂*ε₂*k0^2 .- kpar.^2))
 
-        Z₁ = sqrt(Complex(μ₁/ε₁))
-        Z₂ = sqrt(Complex(μ₂/ε₂))
+        Z₁ = zsqrt(Complex(μ₁/ε₁))
+        Z₂ = zsqrt(Complex(μ₂/ε₂))
         
         rTE = (μ₂.*kz1 - μ₁.*kz2) ./ (μ₂.*kz1 + μ₁.*kz2) 
         tTE = (2*μ₂.*kz1) ./ (μ₂.*kz1 + μ₁.*kz2) 
@@ -90,7 +90,7 @@ end
 function propagate(layer::layerstructure,k0::Number,kpar::Vector{Float64},ind::Int64)
     ε,μ = layer.mat[ind].ε(k0), layer.mat[ind].μ(k0) 
 
-    kz = sqrt.(Complex.(μ*ε*k0^2 .- kpar.^2))
+    kz = zsqrt.(Complex.(μ*ε*k0^2 .- kpar.^2))
     d = layer.z[ind] - layer.z[ind-1]
 
     reshape([exp.(-im*kz*d) 0 .*kz; 0 .*kz exp.(im*kz*d)],(:,2,2))
@@ -99,7 +99,7 @@ end
 function propagate(slab::slabstructure,k0::Number,kpar::Vector{Float64})
     ε,μ = slab.mat[2].ε(k0), slab.mat[2].μ(k0) 
 
-    kz = sqrt.(Complex.(μ*ε*k0^2 .- kpar.^2))
+    kz = zsqrt.(Complex.(μ*ε*k0^2 .- kpar.^2))
     d = slab.d
 
     reshape([exp.(-im*kz*d) 0 .*kz; 0 .*kz exp.(im*kz*d)],(:,2,2))
@@ -231,4 +231,9 @@ struct rtcoeffs <: Field
             
         new(r,t)
     end
+end
+
+function zsqrt(x::Number)
+    y = sqrt(Complex(x))
+    y*sign(imag(y+im*eps()))
 end
