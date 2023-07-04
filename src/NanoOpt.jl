@@ -1,4 +1,4 @@
-using LazyGrids,Interpolations,CSV,DataFrames,FFTW,SpecialFunctions
+using LazyGrids,Interpolations,DifferentialEquations,CSV,DataFrames,FFTW,SpecialFunctions
 
 abstract type Material end
 abstract type Field end

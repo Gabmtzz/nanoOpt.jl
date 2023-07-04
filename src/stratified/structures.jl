@@ -27,7 +27,7 @@ struct fresnel <: Field
     r::fieldTransVec
     t::fieldTransVec
     
-    function fresnel(layer::layerstructure,k0::Number,kpar::Vector{Float64},ind::Int64)
+    function fresnel(layer::layerstructure,k0::Number,kpar,ind::Int64)
         ε₁,μ₁ = layer.mat[ind].ε(k0),layer.mat[ind].μ(k0)
         ε₂,μ₂ = layer.mat[ind+1].ε(k0),layer.mat[ind+1].μ(k0)
 
@@ -49,7 +49,7 @@ struct fresnel <: Field
         new(r,t)
     end
 
-    function fresnel(slab::slabstructure,k0::Number,kpar::Vector{Float64},ind::Int64)
+    function fresnel(slab::slabstructure,k0::Number,kpar,ind::Int64)
         ε₁,μ₁ = slab.mat[ind].ε(k0),slab.mat[ind].μ(k0)
         ε₂,μ₂ = slab.mat[ind+1].ε(k0),slab.mat[ind+1].μ(k0)
 
@@ -76,7 +76,7 @@ struct transfer <: Field
     TE::Array{ComplexF64, 3}
     TM::Array{ComplexF64, 3}
     
-    function transfer(layer::layerstructure,k0::Number,kpar::Vector{Float64},ind::Int64)
+    function transfer(layer::layerstructure,k0::Number,kpar,ind::Int64)
         fresnelC = fresnel(layer,k0,kpar,ind);
         r,t = fresnelC.r,fresnelC.t
         
@@ -87,7 +87,7 @@ struct transfer <: Field
     end
 end
 
-function propagate(layer::layerstructure,k0::Number,kpar::Vector{Float64},ind::Int64)
+function propagate(layer::layerstructure,k0::Number,kpar,ind::Int64)
     ε,μ = layer.mat[ind].ε(k0), layer.mat[ind].μ(k0) 
 
     kz = zsqrt.(Complex.(μ*ε*k0^2 .- kpar.^2))
@@ -96,7 +96,7 @@ function propagate(layer::layerstructure,k0::Number,kpar::Vector{Float64},ind::I
     reshape([exp.(-im*kz*d) 0 .*kz; 0 .*kz exp.(im*kz*d)],(:,2,2))
 end
 
-function propagate(slab::slabstructure,k0::Number,kpar::Vector{Float64})
+function propagate(slab::slabstructure,k0::Number,kpar)
     ε,μ = slab.mat[2].ε(k0), slab.mat[2].μ(k0) 
 
     kz = zsqrt.(Complex.(μ*ε*k0^2 .- kpar.^2))
@@ -131,7 +131,7 @@ struct transfertot <: Field
     TE::Array{ComplexF64, 3}
     TM::Array{ComplexF64, 3}
     
-    function transfertot(layer::layerstructure,k0::Number,kpar::Vector{Float64})
+    function transfertot(layer::layerstructure,k0::Number,kpar)
          n = length(layer.z)
          mTE,mTM = zeros(ComplexF64,length(kpar),2,2),zeros(ComplexF64,length(kpar),2,2)
 
@@ -156,7 +156,7 @@ struct transfertot <: Field
         new(mTE,mTM)
     end
 
-    function transfertot(slab::slabstructure,k0::Number,kpar::Vector{Float64})
+    function transfertot(slab::slabstructure,k0::Number,kpar)
 
         mTE,mTM = zeros(ComplexF64,length(kpar),2,2),zeros(ComplexF64,length(kpar),2,2)
 
@@ -186,7 +186,7 @@ struct rtcoeffs <: Field
     r::fieldTransVec
     t::fieldTransVec
     
-    function rtcoeffs(layer::layerstructure,k0::Number,kpar::Vector{Float64},dir::String)
+    function rtcoeffs(layer::layerstructure,k0::Number,kpar,dir::String)
         mtot = transfertot(layer,k0,kpar)
         
         if dir == "up"
@@ -209,7 +209,7 @@ struct rtcoeffs <: Field
         new(r,t)
     end
 
-    function rtcoeffs(slab::slabstructure,k0::Number,kpar::Vector{Float64},dir::String)
+    function rtcoeffs(slab::slabstructure,k0::Number,kpar,dir::String)
         mtot = transfertot(slab,k0,kpar)
         
         if dir == "up"
