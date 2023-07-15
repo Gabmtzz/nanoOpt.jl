@@ -55,3 +55,20 @@ function epstable(name::String)
     
     epsf
 end
+
+function epsdrude(name::String)
+
+    if name == "Ag"
+        εb,ωₚ,τ = 3.3,10.0,30.
+    elseif name == "Au"
+        εb,ωₚ,τ = 10.0,10.0,10.0
+    elseif name == "Al"
+        εb,ωₚ,τ = 1.0,15.0,1.0
+    end
+
+    γ = 0.66/τ
+
+    epsd = x ->  εb - ωₚ^2/(x*(x+im*γ))
+
+    epsd
+end

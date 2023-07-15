@@ -24,7 +24,7 @@ function GreenEval(green::greenreflect,pos1::Matrix{Float64},pos2::Matrix{Float6
 
     cVal = cart2pol.(pos1[:,1] - pos2[:,1],pos1[:,2] - pos2[:,2])
     ϕ,ρ = first.(cVal),last.(cVal)
-    z,zp = pos1[:,3],pos1[:,3]
+    z,zp = pos1[:,3],pos2[:,3]
 
     ind1 = z .> zn .&& zp .> zn .&& (z + zp .- 2zn) .≥ green.ratio*ρ; Index1 = findall(ind1)
     ind2 = z .> zn .&& zp .> zn .&& (z + zp .- 2zn) .< green.ratio*ρ; Index2 = findall(ind2)
