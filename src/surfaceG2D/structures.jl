@@ -134,6 +134,7 @@ end
 struct Rod <: Structure
     RodELems::Vector{Line}
     boundary::Vector{Float64}
+    Nels::Vector{Int64}
     
     function Rod(w::Number,d::Number,rc::Number,Nc::Int64,Nw::Int64,Nd::Int64,xC::Tuple{Float64, Float64} = (0.,0.))
         xₚ,yₚ = xC 
@@ -160,7 +161,9 @@ struct Rod <: Structure
         
         RodELems = [wUp,circ1,dRg,circ2,wDw,circ3,dLf,circ4]
         
-        new(RodELems,boundary)
+        Nels = [Nw,Nc,Nd,Nc,Nw,Nc,Nd,Nc]
+        
+        new(RodELems,boundary,Nels)
     end
 end
 
@@ -175,7 +178,7 @@ function numEl(rod::Rod)
 end
 
 function getSurfPoints(rod::Rod)
-    N = numEl(rod1)
+    N = numEl(rod)
 
     X,Y = zeros(N+1),zeros(N+1)
 
@@ -203,7 +206,7 @@ function getSvec(m::Int64,rod::Rod)
     ind = 1
 
     rpos = collect(LinRange(0,1,m+1))[:]
-    n = numEl(rod1)
+    n = numEl(rod)
 
     ElRod = rod.RodELems 
     bound = rod.boundary
@@ -278,4 +281,112 @@ function getSvec(m::Int64,rod::Rod)
         end
     end
     rpos,SArr
+end
+
+function GetIndPos(i::Int64,Nels::Vector{Int64})
+    sElms = cumsum(Nels)
+    
+    flag = true
+    ind = 1
+    beg = 0
+    while flag
+        if i ≥ beg && i ≤ sElms[ind]
+            flag = false
+        else
+            beg = sElms[ind]
+            ind += 1
+        end
+    end
+    
+    ind,i-beg
+end
+
+function SQuad(t::Number,i::Int64,rod::Rod)
+    ElRod = rod.RodELems 
+    bound = rod.boundary
+    Nels = rod.Nels
+    nEl,ind = GetIndPos(i,Nels)
+    
+    iRod = ElRod[nEl]
+    Pos = iRod.pos
+    sVecQ = [0.;0.]
+    if typeof(iRod) == lineR
+        if ind == size(Pos,1)
+            θi = bound[nEl]
+            θf = ElRod[nEl+1].θArr[1]
+            a =  ElRod[nEl+1].a
+            xₚ,yₚ = ElRod[nEl+1].xC[1],ElRod[nEl+1].xC[2]
+            Δθ = θf - θi
+        
+            θₜ = Δθ*t + θi
+            sVecQ = [a*cos(θₜ)+xₚ; a*sin(θₜ)+yₚ]
+        else
+            xi,yi = iRod.pos[ind,1],iRod.pos[ind,2]
+            xe,ye = iRod.pos[ind+1,1],iRod.pos[ind+1,2]
+    
+            Δx,Δy = xe-xi,ye-yi
+            sVecQ = [Δx*t+xi; Δy*t+yi]
+        end
+    elseif typeof(iRod) == circle
+        θa = ElRod[nEl].θArr
+        a =  ElRod[nEl].a
+        xₚ,yₚ = ElRod[nEl].xC[1],ElRod[nEl].xC[2]
+    
+        θi = θa[ind]
+    
+        if ind == size(Pos,1)
+            θf = bound[nEl]
+        else
+            θf = θa[ind+1]
+        end
+    
+        Δθ = θf-θi
+        θₜ = Δθ*t + θi
+        sVecQ = [a*cos(θₜ)+xₚ; a*sin(θₜ)+yₚ]
+    end  
+    
+    sVecQ
+end
+
+function nQuad(t::Number,i::Int64,rod::Rod)
+    ElRod = rod.RodELems 
+    bound = rod.boundary
+    Nels = rod.Nels
+    nEl,ind = GetIndPos(i,Nels)
+    
+    iRod = ElRod[nEl]
+    Pos = iRod.nV
+    nVecQ = [0.;0.]
+    if typeof(iRod) == lineR
+        if ind == size(Pos,1)
+            θi = bound[nEl]
+            θf = ElRod[nEl+1].θArr[1]
+            Δθ = θf - θi
+        
+            θₜ = Δθ*t + θi
+            nVecQ = [cos(θₜ); sin(θₜ)]
+        else
+            nxi,nyi = iRod.nV[ind,1],iRod.nV[ind,2]
+            nxe,nye = iRod.nV[ind+1,1],iRod.nV[ind+1,2]
+    
+            Δnx,Δny = nxe-nxi,nye-nyi
+            nVecQ = [Δnx*t+nxi; Δny*t+nyi]
+        end
+    elseif typeof(iRod) == circle
+        θa = ElRod[nEl].θArr
+    
+        θi = θa[ind]
+    
+        if ind == size(Pos,1)
+            θf = bound[nEl]
+        else
+            θf = θa[ind+1]
+        end
+    
+        Δθ = θf-θi
+        θₜ = Δθ*t + θi
+        nVecQ = [cos(θₜ); sin(θₜ)]
+    end  
+    
+    nVecQ
 end

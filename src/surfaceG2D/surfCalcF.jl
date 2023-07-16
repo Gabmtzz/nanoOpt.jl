@@ -137,7 +137,7 @@ end
 function GetMatrixInt(u::Int64,m::Int64,v::Int64,vˡ::Int64,N::Int64,str::Structure,
     k₀::Number,n₂::Number,n₁::Number,dThr::Number)
 Amat,Bmat = zeros(N,N)*im, zeros(N,N)*im
-rp,sArr = getSvec(m,cyl)
+rp,sArr = getSvec(m,str)
 
 for i ∈ 1:N
     for j ∈ 1:N
