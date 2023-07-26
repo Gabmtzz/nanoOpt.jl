@@ -62,6 +62,18 @@ function getSurfPoints(cyl::cylinder)
     Xn,Yn
 end
 
+function getnVPoints(cyl::cylinder)
+    X,Y = cyl.circl.nV[:,1], cyl.circl.nV[:,2]
+
+    Xn,Yn = zeros(length(X)+1),zeros(length(Y)+1)
+
+    Xn[1:length(X)],Yn[1:length(Y)] = X,Y
+
+    Xn[end],Yn[end] = X[1],Y[1]
+    
+    Xn,Yn
+end
+
 function numEl(cyl::cylinder)
     Pos = cyl.circl.pos
     size(Pos,1)
@@ -187,6 +199,30 @@ function getSurfPoints(rod::Rod)
 
     for i ∈ eachindex(rEl)
         xE,yE = rEl[i].pos[:,1],rEl[i].pos[:,2]
+        nx,ny = length(xE),length(yE)
+    
+        X[pos:(pos-1)+nx] = xE
+        Y[pos:(pos-1)+ny] = yE
+    
+        pos += nx
+    end
+
+    X[end] = X[1]
+    Y[end] = Y[1]
+    
+    X,Y
+end
+
+function getnVPoints(rod::Rod)
+    N = numEl(rod)
+
+    X,Y = zeros(N+1),zeros(N+1)
+
+    pos=1
+    rEl = rod.RodELems
+
+    for i ∈ eachindex(rEl)
+        xE,yE = rEl[i].nV[:,1],rEl[i].nV[:,2]
         nx,ny = length(xE),length(yE)
     
         X[pos:(pos-1)+nx] = xE
@@ -389,4 +425,60 @@ function nQuad(t::Number,i::Int64,rod::Rod)
     end  
     
     nVecQ
+end
+
+# ==========================================================================================
+# ==========================================================================================
+# ==========================================================================================
+# ==========================================================================================
+
+function IsInside(x::Number,y::Number,str::Structure)
+    N = numEl(str)
+
+    px,py = getSurfPoints(str)
+    Apos = [px py]
+    nx,ny = getnVPoints(str)
+    An = [nx ny]
+    lZeroArr = Array{Bool}(undef,N)
+    
+    for i ∈ 1:N
+        S,n = Apos[i,:],An[i,:]
+        r = [x; y]
+        vec = (r-S)/norm(r-S)
+        lZeroArr[i] = n ⋅ vec ≤ 0.0
+    end
+    
+    isempty(findall(lZeroArr .== false))
+end
+
+function getLineSep(j::Int64,xx::Matrix{Float64},yy::Matrix{Float64},str::Structure)
+    n = size(xx,1)
+
+    Xout,Yout = Array{Float64}(undef,0),Array{Float64}(undef,0)
+    Xin,Yin = Array{Float64}(undef,0),Array{Float64}(undef,0)
+
+
+    for i ∈ 1:n
+        x,y = xx[i,j],yy[i,j]
+        if IsInside(x,y,str)
+            push!(Xin,x); push!(Yin,y)
+        else
+            push!(Xout,x); push!(Yout,y)
+        end
+    end
+    
+    Xin,Yin,Xout,Yout
+end
+
+function getMesh(xA::Vector{Float64},yA::Vector{Float64},str::Structure)
+    xx,yy = ndgrid(xA,yA)
+    xx,yy = collect(xx),collect(yy)
+    Xin,Yin,Xout,Yout = Array{Float64}(undef,0),Array{Float64}(undef,0),Array{Float64}(undef,0),Array{Float64}(undef,0)
+    
+    for j ∈ axes(xx,2)
+        Xi,Yi,Xo,Yo = getLineSep(j,xx,yy,str)
+        Xin,Xout,Yin,Yout = vcat(Xin,Xi),vcat(Xout,Xo),vcat(Yin,Yi),vcat(Yout,Yo)
+    end
+    
+    Xin,Xout,Yin,Yout
 end

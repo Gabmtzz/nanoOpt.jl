@@ -15,6 +15,22 @@ function GetH0Arr(N::Number,SArr::Matrix{Vector{Float64}},k₀::Number,n₁::Num
     return H₀Arr
 end
 
+function Get_E0(k₀::Number,n₁::Number,X::Vector{Float64},Y::Vector{Float64},α::Number)
+    μ₀ = 1.25663706144e-6
+    ε₀ = 8.85418781762e-12
+
+    αᵣ = (π*α)/180
+
+    H₀Arr = Get_H0(k₀,n₁,X,Y,αᵣ)
+
+    E₀Arr = Array{Array{ComplexF64,1}}(undef,length(H₀Arr))
+
+    for i ∈ eachindex(E₀Arr)
+        E₀Arr[i] = √(μ₀/ε₀)*(1/n₁)*H₀Arr[i]*[-sin(αᵣ); cos(αᵣ)]
+    end
+
+    E₀Arr
+end
 
 function getD(N::Int64)
     D = Matrix(Bidiagonal(zeros(N),ones(N-1),:U))
@@ -91,7 +107,7 @@ end
 
 function BelementQuad(i::Int64,j::Int64,u::Int64,m::Int64,v::Int64,vˡ::Int64,k₀::Number,n₂::Number,n₁::Number,
     sArr::Matrix{Vector{Float64}},rpos::Vector{Float64},struc::Structure)
-
+es = 1e-6
 vMax = size(sArr,2)
 nᵤ(u) = u == 1 ? n₁ : n₂
 δ(i,j) = i == j ? 1 : 0
@@ -102,14 +118,15 @@ B,_ = quadgk(x -> -(im/4)*hankelh1(1,k₀*nᵤ(u)*norm(sArr[i,v+1]-SQuad(x,j,str
 else
 if v == 0 || v == vMax-1
     B,_ = quadgk(x -> -(im/4)*hankelh1(1,k₀*nᵤ(u)*norm(sArr[i,v+1]-SQuad(x,j,struc)))*k₀*nᵤ(u)*(((SQuad(x,j,struc)-sArr[i,v+1])/(norm(SQuad(x,j,struc)-sArr[i,v+1]))) ⋅ nQuad(x,j,struc))*Δ(j,sArr)*fpol(m,vˡ,x),
-    0.0, 1.0, rtol=1e-8)
+    0.0+es, 1.0-es, rtol=1e-8)
     
     B = B + δ(v,vˡ)*(1/2)*(δ(u,1) - δ(u,2))
 else
-    B,_ = quadgk(x -> -(im/4)*hankelh1(1,k₀*nᵤ(u)*norm(sArr[i,v+1]-SQuad(x,j,struc)))*k₀*nᵤ(u)*(((SQuad(x,j,struc)-sArr[i,v+1])/(norm(SQuad(x,j,struc)-sArr[i,v+1]))) ⋅ nQuad(x,j,struc))*Δ(j,sArr)*fpol(m,vˡ,x),
-    0.0,rpos[v+1],1.0, rtol=1e-8)
+    B1,_ = quadgk(x -> -(im/4)*hankelh1(1,k₀*nᵤ(u)*norm(sArr[i,v+1]-SQuad(x,j,struc)))*k₀*nᵤ(u)*(((SQuad(x,j,struc)-sArr[i,v+1])/(norm(SQuad(x,j,struc)-sArr[i,v+1]))) ⋅ nQuad(x,j,struc))*Δ(j,sArr)*fpol(m,vˡ,x),
+    0.0+es,rpos[v+1]-es, rtol=1e-8)
+    B2,_ = quadgk(x -> -(im/4)*hankelh1(1,k₀*nᵤ(u)*norm(sArr[i,v+1]-SQuad(x,j,struc)))*k₀*nᵤ(u)*(((SQuad(x,j,struc)-sArr[i,v+1])/(norm(SQuad(x,j,struc)-sArr[i,v+1]))) ⋅ nQuad(x,j,struc))*Δ(j,sArr)*fpol(m,vˡ,x), rpos[v+1]+es,1.0-es, rtol=1e-8)
     
-    B = B + δ(v,vˡ)*(1/2)*(δ(u,1) - δ(u,2))
+    B = B1+B2 + δ(v,vˡ)*(1/2)*(δ(u,1) - δ(u,2))
 end
 end
 
