@@ -42,12 +42,12 @@ end
 
 
 function Δ(i::Int64,SArr::Matrix{Vector{Float64}})
-    S1a = SArr[:,1];  
-    if i == length(S1a)
-        return norm(S1a[1] - S1a[end])
-    else
-        return norm(S1a[i+1] - S1a[i])
-    end
+    ny = size(SArr,2)
+    
+    S1a = SArr[:,1]
+    S1e = SArr[:,ny]
+    
+    return norm(S1e[i] - S1a[i])
 end
 
 function fpol(m::Int64,v::Int64,x::Number)

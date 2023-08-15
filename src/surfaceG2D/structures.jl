@@ -430,6 +430,88 @@ end
 # ==========================================================================================
 # ==========================================================================================
 # ==========================================================================================
+
+struct StructureC <: Structure
+    elements::Vector{Structure}
+    boundEls::Vector{Int64}
+    
+    function StructureC(ss)
+        bEl = cumsum(numEl.(ss))
+        
+        new(ss,bEl)
+    end
+end
+
+function getIndexStr(i::Int64,Structures::StructureC)
+    indexB = Structures.boundEls
+    
+    flag = true
+    indB = 1
+    i0 = 0
+    indEl = 1
+
+    while flag
+        elmB = indexB[indB]
+    
+        if i > i0  && i ≤ elmB
+           indEl = i - i0
+            flag = false
+        else
+            i0 = elmB
+        
+            if indB < length(indexB)
+                indB += 1
+            end
+        end
+    end
+    indB,indEl
+end
+
+function numEl(Structures::StructureC)
+    aRReL = Structures.elements
+    sn = 0
+
+    for i ∈ eachindex(aRReL)
+    
+        sn += numEl(aRReL[i])
+    end
+    
+    sn
+end
+
+function getSvec(m::Int64,Structures::StructureC)
+    aRReL = Structures.elements
+    
+    rpos,SArr =  getSvec(m,aRReL[1])
+    
+    for i ∈ 2:length(aRReL)
+    
+        _,SArrE =  getSvec(m,aRReL[i])
+        SArr=vcat(SArr,SArrE)
+    end
+
+    rpos,SArr
+end    
+
+function SQuad(t::Number,i::Int64,Structures::StructureC)
+    indB,indEl = getIndexStr(i,Structures)
+
+    strEl = Structures.elements[indB]
+
+    SQuad(t,indEl,strEl)
+end
+
+function nQuad(t::Number,i::Int64,Structures::StructureC)
+    indB,indEl = getIndexStr(i,Structures)
+
+    strEl = Structures.elements[indB]
+
+    nQuad(t,indEl,strEl)
+end
+
+# ==========================================================================================
+# ==========================================================================================
+# ==========================================================================================
 # ==========================================================================================
 
 function IsInside(x::Number,y::Number,str::Structure)
