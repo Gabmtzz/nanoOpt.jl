@@ -533,6 +533,12 @@ function IsInside(x::Number,y::Number,str::Structure)
     isempty(findall(lZeroArr .== false))
 end
 
+function IsInside(x::Number,y::Number,Structures::StructureC)
+    vecB = IsInside.(x,y,Structures.elements)
+    
+    sum(vecB) > 0
+end
+
 function getLineSep(j::Int64,xx::Matrix{Float64},yy::Matrix{Float64},str::Structure)
     n = size(xx,1)
 
