@@ -1,0 +1,107 @@
+abstract type greenFunct end
+
+struct SommerfieldParams <: greenFunct
+    EL::Float64
+    EH::Float64
+    layer::layerstructure
+    
+    function SommerfieldParams(layer::layerstructure,EL::Float64,EH::Float64 = 1e-4)
+        new(EL,EH,layer)
+    end
+end
+
+struct greenHomo <: greenFunct
+    gTot::Function
+    DgTot::Function
+
+    function greenHomo(k::Function)
+
+        gTot = (r::Vector{Float64},rl::Vector{Float64},k0::Number) -> (im/4)*hankelh1(0,k(k0)*norm(r-rl))
+        DrTot = (r::Vector{Float64},rl::Vector{Float64},k0::Number) -> (-im/4)*hankelh1(1,k(k0)*norm(r-rl))*((rl-r)/norm(rl-r))*k(k0)
+
+        new(gTot,DrTot)
+    end
+end
+
+struct greenFunLayer <: greenFunct
+    gTot::Function
+    DgTot::Function
+    
+    function greenFunLayer(k0::Number, SParms::SommerfieldParams,xP::Tuple{Float64, Int64},yP::Tuple{Float64, Int64})
+        gfIn = greenFunLayerInd(k0,SParms,xP,yP)
+        matA = SParms.layer.mat
+        ε1f,εLf = matA[1].ε,matA[end].ε
+        k1 = matA[1].k
+        
+        gtot  = (r::Vector{Float64},rl::Vector{Float64},k::Number=k0) -> gfIn.gInd(abs(r[1]-rl[1]),r[2]+rl[2]) + (1. + (εLf(k0)-ε1f(k0))/(εLf(k0)+ε1f(k0)))*(im/4)*hankelh1(0,k1(k0)*norm(r-rl))
+        dgif = (r::Vector{Float64},rl::Vector{Float64},k::Number=k0) -> [gfIn.DxgInd(abs(r[1]-rl[1]),r[2]+rl[2])*sign(rl[1]-r[1]); gfIn.DygInd(abs(r[1]-rl[1]),r[2]+rl[2])] - (1. + (εLf(k0)-ε1f(k0))/(εLf(k0)+ε1f(k0)))*(im/4)*hankelh1(1,k1(k0)*norm(r-rl))*((rl-r)/norm(rl-r))*k1(k0)
+        
+        new(gtot,dgif)
+    end
+end
+
+struct greenFunLayerInd <: greenFunct
+    gInd::Any
+    DxgInd::Any
+    DygInd::Any
+    
+    function greenFunLayerInd(k0::Number, SParms::SommerfieldParams,xP::Tuple{Float64, Int64},yP::Tuple{Float64, Int64})
+        
+        EL,EH,layer = SParms.EL,SParms.EH,SParms.layer
+        
+        xE,nx = xP
+        yE,ny = yP
+        
+        xdA = collect(LinRange(0.,xE,nx)) 
+        ysA = collect(LinRange(0.,yE,ny))
+        
+        arrGr = [Evalgreenrefns1(k0,xdA[i],ysA[j],EL,EH,layer) for i in eachindex(xdA), j in eachindex(ysA)]
+        
+        difarrGrx = diff(arrGr,dims=1)
+        difarrGry = diff(arrGr,dims=2)
+        
+        
+        itpGind = LinearInterpolation((xdA,ysA),arrGr)
+        itpGindDx = LinearInterpolation((xdA[1:end-1],ysA),difarrGrx)
+        itpGindDy = LinearInterpolation((xdA,ysA[1:end-1]),difarrGry)
+        
+        gifn = (x,y)-> itpGind(x,y)
+        gifnDx = (x,y)-> itpGindDx(x,y)
+        gifnDy = (x,y)-> itpGindDy(x,y)
+        
+        new(gifn,gifnDx,itpGindDy)
+    end
+end
+
+
+kyi(β::Number,kᵢ::Number) = zsqrt(Complex(kᵢ^2 - β^2))
+
+function greenRefnsInt(kx::Number,k0::Number,xdif::Float64,ysum::Float64,layer::layerstructure)
+    εₗₑ = layer.mat[end].ε(k0)
+    ε₁ = layer.mat[1].ε(k0)
+    k₁ = layer.mat[1].k(k0)
+    rtC = rtcoeffs(layer,k0,[kx,],"up")
+    rp = rtC.r.TM[1]
+
+    ky1 = kyi(kx,k₁)
+    
+    (cos(kx*xdif)*(rp-(εₗₑ - ε₁)/(εₗₑ + ε₁))*exp(im*ky1*ysum))/ky1
+end
+
+function kAng(α::Float64,Eₗ::Float64,Eₕ::Float64)
+    (1+cos(α))*Eₗ/2 + im*Eₕ*sin(α)
+end
+
+function dkAng(α::Float64,Eₗ::Float64,Eₕ::Float64)
+    (-sin(α))*Eₗ/2 + im*Eₕ*cos(α)
+end
+
+function Evalgreenrefns1(k0::Number,xdif::Float64,ysum::Float64,EL::Float64,EH::Float64,layer::layerstructure)
+    fn1(x) = greenRefnsInt(kAng(x,EL,EH),k0,xdif,ysum,layer)*dkAng(x,EL,EH)
+    fn2(x) = greenRefnsInt(x,k0,xdif,ysum,layer)
+    
+    I1,_ = quadgk(x -> fn1(x),-π,0)
+    I2,_ = quadgk(x -> fn2(x),EL,Inf)
+    
+    (im/(2π))*(I1+I2)
+end
