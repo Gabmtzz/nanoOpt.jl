@@ -1,6 +1,6 @@
 using QuadGK
 
 include("structures.jl")
-include("surfCalcF.jl")
 include("GreenFunctions.jl")
+include("surfCalcF.jl")
 include("EHFieldC.jl")

@@ -1,15 +1,5 @@
 abstract type greenFunct end
 
-struct SommerfieldParams <: greenFunct
-    EL::Float64
-    EH::Float64
-    layer::layerstructure
-    
-    function SommerfieldParams(layer::layerstructure,EL::Float64,EH::Float64 = 1e-4)
-        new(EL,EH,layer)
-    end
-end
-
 struct greenHomo <: greenFunct
     gTot::Function
     DgTot::Function
@@ -20,6 +10,16 @@ struct greenHomo <: greenFunct
         DrTot = (r::Vector{Float64},rl::Vector{Float64},k0::Number) -> (-im/4)*hankelh1(1,k(k0)*norm(r-rl))*((rl-r)/norm(rl-r))*k(k0)
 
         new(gTot,DrTot)
+    end
+end
+
+struct SommerfieldParams <: greenFunct
+    EL::Float64
+    EH::Float64
+    layer::layerstructure
+    
+    function SommerfieldParams(layer::layerstructure,EL::Float64,EH::Float64 = 1e-4)
+        new(EL,EH,layer)
     end
 end
 
@@ -69,10 +69,30 @@ struct greenFunLayerInd <: greenFunct
         gifnDx = (x,y)-> itpGindDx(x,y)
         gifnDy = (x,y)-> itpGindDy(x,y)
         
-        new(gifn,gifnDx,itpGindDy)
+        new(gifn,gifnDx,gifnDy)
     end
 end
 
+struct GreenFunctions <: greenFunct
+    GrFuncs::Array{greenFunct}
+    
+    function GreenFunctions(matScatter::Vector{MaterialParams},Opt::String;k0::Number=2π/600,
+                SParms::SommerfieldParams = SommerfieldParams(layerstructure(matScatter,[0. ,],"up"),2k0),
+                xP::Tuple{Float64, Int64} = (200. , 5),yP::Tuple{Float64, Int64} = (40. , 5))
+        
+        mt1,mt2 = matScatter[1],matScatter[2]
+        
+        if Opt == "Homo"
+            gf1 = greenHomo(mt1.k)
+        else Opt == "Layer"
+            gf1 = greenFunLayer(k0,SParms,xP,yP)
+        end
+        
+        gf2 = greenHomo(mt2.k)
+          
+        new([gf1; gf2])
+    end
+end
 
 kyi(β::Number,kᵢ::Number) = zsqrt(Complex(kᵢ^2 - β^2))
 

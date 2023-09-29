@@ -127,7 +127,7 @@ end
 function nQuad(t::Number,i::Int64,cyl::cylinder)
     θa = cyl.circl.θArr
     n = length(θa)
-    xₚ,yₚ = cyl.circl.xC[1],cyl.circl.xC[2]
+    #xₚ,yₚ = cyl.circl.xC[1],cyl.circl.xC[2]
     
     if i == n
         Δθ = 2π - (θa[end] - θa[1])
