@@ -105,12 +105,29 @@ function AelementSum(i::Int64,j::Int64,u::Int64,m::Int64,v::Int64,vˡ::Int64,k�
 
 end
 
+function constBel(i::Int64,j::Int64,v::Int64,vˡ::Int64,u::Int64,sV::Vector{Float64},layer::layerstructure,k0::Number,Opt::String)
+    
+    δ(i::Int64,j::Int64) = i == j ? 1 : 0
+    δ(Sᵢ::Vector{Float64}) = [0.;1.]⋅Sᵢ == 0 ? 1 : 0
+    
+    if Opt == "Homo"
+        return δ(i,j)*δ(v,vˡ)*0.5*(δ(u,1)-δ(u,2))
+    else
+        ε1 = layer.mat[1].ε
+        εL = layer.mat[end].ε
+        
+        return δ(i,j)*δ(v,vˡ)*0.5*(δ(u,1)-δ(u,2))+δ(i,j)*δ(v,vˡ)*δ(sV)*δ(u,1)*((εL(k0)-ε1(k0))/(εL(k0)+ε1(k0)))
+    end
+end
+
 function BelementQuad(i::Int64,j::Int64,u::Int64,m::Int64,v::Int64,vˡ::Int64,k₀::Number,Grf::GreenFunctions,
-    sArr::Matrix{Vector{Float64}},rpos::Vector{Float64},struc::Structure)
+    sArr::Matrix{Vector{Float64}},rpos::Vector{Float64},struc::Structure,layer::layerstructure,Opt::String)
     es = 1e-6
     vMax = size(sArr,2)
 
-    δ(i,j) = i == j ? 1 : 0
+    #δ(i,j) = i == j ? 1 : 0
+
+    cte = constBel(i,j,v,vˡ,u,sArr[i,v+1],layer,k₀,Opt)
 
     DgFun = Grf.GrFuncs[u].DgTot
 
@@ -122,13 +139,13 @@ function BelementQuad(i::Int64,j::Int64,u::Int64,m::Int64,v::Int64,vˡ::Int64,k�
             B,_ = quadgk(x -> (conj(DgFun(sArr[i,v+1],SQuad(x,j,struc),k₀)) ⋅ nQuad(x,j,struc))*Δ(j,sArr)*fpol(m,vˡ,x),
                 0.0+es, 1.0-es, rtol=1e-8)
     
-            B = B + δ(v,vˡ)*(1/2)*(δ(u,1) - δ(u,2))
+            B = B + cte
         else
             B1,_ = quadgk(x -> (conj(DgFun(sArr[i,v+1],SQuad(x,j,struc),k₀)) ⋅ nQuad(x,j,struc))*Δ(j,sArr)*fpol(m,vˡ,x),
                 0.0+es,rpos[v+1]-es, rtol=1e-8)
             B2,_ = quadgk(x -> (conj(DgFun(sArr[i,v+1],SQuad(x,j,struc),k₀)) ⋅ nQuad(x,j,struc))*Δ(j,sArr)*fpol(m,vˡ,x), rpos[v+1]+es,1.0-es, rtol=1e-8)
     
-            B = B1+B2 + δ(v,vˡ)*(1/2)*(δ(u,1) - δ(u,2))
+            B = B1+B2 + cte
         end
     end
 
@@ -154,17 +171,17 @@ end
 
 
 function GetMatrixInt(u::Int64,m::Int64,v::Int64,vˡ::Int64,N::Int64,str::Structure,
-    k₀::Number,Grf::GreenFunctions,dThr::Number)
+    k₀::Number,Grf::GreenFunctions,dThr::Number,layer::layerstructure,Opt::String)
     Amat,Bmat = zeros(N,N)*im, zeros(N,N)*im
     rp,sArr = getSvec(m,str)
 
-    for i ∈ 1:N
-        for j ∈ 1:N
+    for j ∈ 1:N
+        for i ∈ 1:N
             dis = norm(sArr[i,v+1]-SQuad(0,j,str))
         
             if dis ≤ dThr
                 Amat[i,j] = AelementQuad(i,j,u,m,v,vˡ,k₀,Grf,sArr,rp,str)
-                Bmat[i,j] = BelementQuad(i,j,u,m,v,vˡ,k₀,Grf,sArr,rp,str)
+                Bmat[i,j] = BelementQuad(i,j,u,m,v,vˡ,k₀,Grf,sArr,rp,str,layer,Opt)
             else
                 Amat[i,j] = AelementSum(i,j,u,m,v,vˡ,k₀,Grf,sArr,str)
                 Bmat[i,j] = BelementSum(i,j,u,m,v,vˡ,k₀,Grf,sArr,str)
@@ -175,7 +192,7 @@ function GetMatrixInt(u::Int64,m::Int64,v::Int64,vˡ::Int64,N::Int64,str::Struct
     Amat,Bmat
 end
 
-function getFullMatr(u::Int64,m::Int64,str::Structure,k₀::Number,Grf::GreenFunctions,dThr::Number)
+function getFullMatr(u::Int64,m::Int64,str::Structure,k₀::Number,Grf::GreenFunctions,dThr::Number,layer::layerstructure,Opt::String)
     N = numEl(str)
     Dₕ,Dϕ = getD(N)
     AMatrix, BMatrix = zeros(m*N,m*N)*im,zeros(m*N,m*N)*im
@@ -186,10 +203,10 @@ function getFullMatr(u::Int64,m::Int64,str::Structure,k₀::Number,Grf::GreenFun
         ind1 = 0
         for vˡ ∈ 1:m
             if vˡ ≠ 1
-                 AMatrix[ind+1:ind+N,ind1+1:ind1+N],BMatrix[ind+1:ind+N,ind1+1:ind1+N] = GetMatrixInt(u,m,v-1,vˡ-1,N,str,k₀,Grf,dThr)
+                 AMatrix[ind+1:ind+N,ind1+1:ind1+N],BMatrix[ind+1:ind+N,ind1+1:ind1+N] = GetMatrixInt(u,m,v-1,vˡ-1,N,str,k₀,Grf,dThr,layer,Opt)
             else
-                A0,B0 = GetMatrixInt(u,m,v-1,vˡ-1,N,str,k₀,Grf,dThr)
-                Am,Bm = GetMatrixInt(u,m,v-1,m,N,str,k₀,Grf,dThr)
+                A0,B0 = GetMatrixInt(u,m,v-1,vˡ-1,N,str,k₀,Grf,dThr,layer,Opt)
+                Am,Bm = GetMatrixInt(u,m,v-1,m,N,str,k₀,Grf,dThr,layer,Opt)
             
                 AMatrix[ind+1:ind+N,ind1+1:ind1+N] = A0 + Am*Dϕ 
                 BMatrix[ind+1:ind+N,ind1+1:ind1+N] = B0 + Bm*Dₕ 
@@ -202,13 +219,14 @@ function getFullMatr(u::Int64,m::Int64,str::Structure,k₀::Number,Grf::GreenFun
     AMatrix, BMatrix
 end
 
-function getHϕ(m::Int64,str::Structure,k₀::Number,Grf::GreenFunctions,n₂::Function,n₁::Function,dThr::Number,α::Number)
+function getHϕ(m::Int64,str::Structure,k₀::Number,Grf::GreenFunctions,n₂::Function,n₁::Function,dThr::Number,α::Number,
+    layer::layerstructure=layerstructure([material(n₁(k₀)^2,1.0),material(n₁(k₀)^2,1.0)],[0.0,],"up"),Opt::String="Homo")
     N = numEl(str)
     Dₕ,Dϕ = getD(N)
 
 
-    A1,B1 = getFullMatr(1,m,str,k₀,Grf,dThr)
-    A2,B2 = getFullMatr(2,m,str,k₀,Grf,dThr)
+    A1,B1 = getFullMatr(1,m,str,k₀,Grf,dThr,layer,Opt)
+    A2,B2 = getFullMatr(2,m,str,k₀,Grf,dThr,layer,Opt)
 
     _,SArr = getSvec(m,str)
     H₀Arr = GetH0Arr(N,SArr[:,1:m],k₀,n₁(k₀),α)
@@ -252,7 +270,8 @@ function getHₛ(r::Vector{Float64},R::Number,ϕ::Matrix{ComplexF64},H::Matrix{C
 
 end
 
-function getσₐ(m::Int64,k₀::Vector{Float64},matScatter::Vector{MaterialParams},str::Structure,dThr::Float64,α::Float64,Opt::String="Homo")
+function getσₐ(m::Int64,k₀::Vector{Float64},matScatter::Vector{MaterialParams},str::Structure,dThr::Float64,α::Float64,Opt::String="Homo";
+        layer::layerstructure = layerstructure(matScatter,[0. ,],"up"))
     _,SArr= getSvec(m,str)
     N = size(SArr,1)
 
@@ -263,9 +282,16 @@ function getσₐ(m::Int64,k₀::Vector{Float64},matScatter::Vector{MaterialPara
         n₁ = matScatter[1].n
         n₂ = matScatter[2].n
 
-        Grf = GreenFunctions(matScatter,Opt)
+        if Opt == "Homo"
 
-        H,ϕ = getHϕ(m,str,k0,Grf,n₂,n₁,dThr,α)
+            Grf = GreenFunctions(matScatter,Opt)
+        else 
+            SParms = SommerfieldParams(layer,2k0)
+            Grf = GreenFunctions(matScatter,Opt;k0=k0,SParms=SParms)
+        end
+
+
+        H,ϕ = getHϕ(m,str,k0,Grf,n₂,n₁,dThr,α,layer,Opt)
 
         sum1 = 0.0
         for i ∈ 1:N
@@ -281,12 +307,13 @@ function getσₐ(m::Int64,k₀::Vector{Float64},matScatter::Vector{MaterialPara
     σₐArr
 end
 
-function getσₑ(m::Int64,k₀::Vector{Float64},matScatter::Vector{MaterialParams},str::Structure,dThr::Float64,r::Number,α::Float64,Opt::String="Homo")
+function getσₑ(m::Int64,k₀::Vector{Float64},matScatter::Vector{MaterialParams},str::Structure,dThr::Float64,r::Number,α::Float64,Opt::String="Homo";
+    layer::layerstructure = layerstructure(matScatter,[0. ,],"up"))
 
     σₑArr = zeros(length(k₀))
 
     Nₛ = 500
-    Θₛ = [(2π/Nₛ)*(i-(1/2)) for i ∈ 1:Nₛ]; ΔΘₛ = Θₛ[2] - Θₛ[1]
+    Θₛ = [(2π/Nₛ)*(i-(1/2)) for i ∈ 1:Nₛ]
     R= r*[cos.(Θₛ) sin.(Θₛ)]
 
     for i ∈ eachindex(k₀)
@@ -294,9 +321,15 @@ function getσₑ(m::Int64,k₀::Vector{Float64},matScatter::Vector{MaterialPara
         n₁ = matScatter[1].n
         n₂ = matScatter[2].n
 
-        Grf = GreenFunctions(matScatter,Opt)
+        if Opt == "Homo"
 
-        H,ϕ = getHϕ(m,str,k0,Grf,n₂,n₁,dThr,α)
+            Grf = GreenFunctions(matScatter,Opt)
+        else 
+            SParms = SommerfieldParams(layer,2k0)
+            Grf = GreenFunctions(matScatter,Opt;k0=k0,SParms=SParms)
+        end
+
+        H,ϕ = getHϕ(m,str,k0,Grf,n₂,n₁,dThr,α,layer,Opt)
 
         αₛ = (α*π)/180
         Rₛ = r*[cos(αₛ), sin(αₛ)]
@@ -307,7 +340,8 @@ function getσₑ(m::Int64,k₀::Vector{Float64},matScatter::Vector{MaterialPara
     σₑArr
 end
 
-function getσₛ(m::Int64,k₀::Vector{Float64},matScatter::Vector{MaterialParams},str::Structure,dThr::Float64,r::Number,α::Float64,Opt::String="Homo")
+function getσₛ(m::Int64,k₀::Vector{Float64},matScatter::Vector{MaterialParams},str::Structure,dThr::Float64,r::Number,α::Float64,Opt::String="Homo";
+    layer::layerstructure = layerstructure(matScatter,[0. ,],"up"))
 
     σₛArr = zeros(length(k₀))
 
@@ -320,9 +354,15 @@ function getσₛ(m::Int64,k₀::Vector{Float64},matScatter::Vector{MaterialPara
         n₁ = matScatter[1].n
         n₂ = matScatter[2].n
 
-        Grf = GreenFunctions(matScatter,Opt)
+        if Opt == "Homo"
 
-        H,ϕ = getHϕ(m,str,k0,Grf,n₂,n₁,dThr,α)
+            Grf = GreenFunctions(matScatter,Opt)
+        else 
+            SParms = SommerfieldParams(layer,2k0)
+            Grf = GreenFunctions(matScatter,Opt;k0=k0,SParms=SParms)
+        end
+
+        H,ϕ = getHϕ(m,str,k0,Grf,n₂,n₁,dThr,α,layer,Opt)
 
         HₛArr = zeros(Nₛ)*im
 
