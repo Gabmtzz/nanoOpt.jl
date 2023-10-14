@@ -2,6 +2,14 @@ function Get_H0(k₀::Number,n₁::Number,X::Vector{Float64},Y::Vector{Float64},
     return exp.(im*k₀*n₁.*(cos(α)*X + sin(α)*Y))
 end
 
+function Get_H0(k₀::Number,n₁::Number,X::Vector{Float64},Y::Vector{Float64},layer::layerstructure,α::Number)
+    
+    rt = rtcoeffs(layer,k₀,[k₀*n₁*sin(π/2 - α),],"up")
+    r = rt.r.TM[1]#; t = rt.t.TM[1]
+    
+    return @. exp(im*k₀*n₁*(cos(α)*X+sin(α)*Y)) + r*exp(-im*k₀*n₁*(cos(α)*X+sin(α)*Y))
+end
+
 function GetH0Arr(N::Number,SArr::Matrix{Vector{Float64}},k₀::Number,n₁::Number,α::Number)
     αR =(π*α)/180 
     H₀Arr = zeros(N,size(SArr,2))*im
@@ -11,6 +19,19 @@ function GetH0Arr(N::Number,SArr::Matrix{Vector{Float64}},k₀::Number,n₁::Num
         X = [SVec[i][1] for i in 1:N]; Y = [SVec[i][2] for i in 1:N]
     
         H₀Arr[:,j] = Get_H0(k₀,n₁,X,Y,αR)
+    end
+    return H₀Arr
+end
+
+function GetH0Arr(N::Number,SArr::Matrix{Vector{Float64}},k₀::Number,n₁::Number,layer::layerstructure,α::Number)
+    αR =(π*α)/180 
+    H₀Arr = zeros(N,size(SArr,2))*im
+
+    for j in axes(SArr,2) 
+        SVec = SArr[:,j]
+        X = [SVec[i][1] for i in 1:N]; Y = [SVec[i][2] for i in 1:N]
+    
+        H₀Arr[:,j] = Get_H0(k₀,n₁,X,Y,layer,αR)
     end
     return H₀Arr
 end
@@ -116,7 +137,7 @@ function constBel(i::Int64,j::Int64,v::Int64,vˡ::Int64,u::Int64,sV::Vector{Floa
         ε1 = layer.mat[1].ε
         εL = layer.mat[end].ε
         
-        return δ(i,j)*δ(v,vˡ)*0.5*(δ(u,1)-δ(u,2))+δ(i,j)*δ(v,vˡ)*δ(sV)*δ(u,1)*((εL(k0)-ε1(k0))/(εL(k0)+ε1(k0)))
+        return δ(i,j)*δ(v,vˡ)*0.5*(δ(u,1)-δ(u,2)) + (δ(i,j)*δ(v,vˡ)*δ(sV)*δ(u,1)*((εL(k0)-ε1(k0))/(εL(k0)+ε1(k0))))
     end
 end
 
@@ -229,7 +250,12 @@ function getHϕ(m::Int64,str::Structure,k₀::Number,Grf::GreenFunctions,n₂::F
     A2,B2 = getFullMatr(2,m,str,k₀,Grf,dThr,layer,Opt)
 
     _,SArr = getSvec(m,str)
-    H₀Arr = GetH0Arr(N,SArr[:,1:m],k₀,n₁(k₀),α)
+    
+    if Opt == "Homo"
+        H₀Arr = GetH0Arr(N,SArr[:,1:m],k₀,n₁(k₀),α)
+    else
+        H₀Arr = GetH0Arr(N,SArr[:,1:m],k₀,n₁(k₀),layer,α)
+    end
 
     M = [(I(m*N) - B1) A1;
             (I(m*N) + B2) -(n₂(k₀)^2/n₁(k₀)^2)*A2]

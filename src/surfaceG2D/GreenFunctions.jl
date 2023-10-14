@@ -55,15 +55,23 @@ struct greenFunLayerInd <: greenFunct
         xdA = collect(LinRange(0.,xE,nx)) 
         ysA = collect(LinRange(0.,yE,ny))
         
+        yT = 0:1:yE
+        xT = 0:1:xE
+        
         arrGr = [Evalgreenrefns1(k0,xdA[i],ysA[j],EL,EH,layer) for i in eachindex(xdA), j in eachindex(ysA)]
+
+        method = BSpline(Cubic(Natural(OnGrid())))
+
+        itpGind = scale(interpolate(arrGr, method),LinRange(0.,xE,nx),LinRange(0.,yE,ny))
         
-        difarrGrx = diff(arrGr,dims=1)
-        difarrGry = diff(arrGr,dims=2)
         
+        MatGFa = [itpGind(x,y) for x ∈ xT, y ∈ yT];
         
-        itpGind = LinearInterpolation((xdA,ysA),arrGr)
-        itpGindDx = LinearInterpolation((xdA[1:end-1],ysA),difarrGrx)
-        itpGindDy = LinearInterpolation((xdA,ysA[1:end-1]),difarrGry)
+        mtdx = diff(MatGFa,dims=1)
+        mtdy = diff(MatGFa,dims=2)
+
+        itpGindDx = scale(interpolate(mtdx, method),xT[1:end-1],yT)
+        itpGindDy = scale(interpolate(mtdy, method),xT,yT[1:end-1])
         
         gifn = (x,y)-> itpGind(x,y)
         gifnDx = (x,y)-> itpGindDx(x,y)
