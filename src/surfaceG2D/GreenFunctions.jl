@@ -27,14 +27,18 @@ struct greenFunLayer <: greenFunct
     gTot::Function
     DgTot::Function
     
-    function greenFunLayer(k0::Number, SParms::SommerfieldParams,xP::Tuple{Float64, Int64},yP::Tuple{Float64, Int64})
+    function greenFunLayer(k0::Number, SParms::SommerfieldParams,xP::Tuple{Float64, Int64},yP::Tuple{Float64,Float64, Int64})
+        mVec(r::Vector{Float64}) = r.*[1,-1]
+
         gfIn = greenFunLayerInd(k0,SParms,xP,yP)
         matA = SParms.layer.mat
         ε1f,εLf = matA[1].ε,matA[end].ε
         k1 = matA[1].k
-        
-        gtot  = (r::Vector{Float64},rl::Vector{Float64},k::Number=k0) -> gfIn.gInd(abs(r[1]-rl[1]),r[2]+rl[2]) + (1. + (εLf(k0)-ε1f(k0))/(εLf(k0)+ε1f(k0)))*(im/4)*hankelh1(0,k1(k0)*norm(r-rl))
-        dgif = (r::Vector{Float64},rl::Vector{Float64},k::Number=k0) -> [gfIn.DxgInd(abs(r[1]-rl[1]),r[2]+rl[2])*sign(rl[1]-r[1]); gfIn.DygInd(abs(r[1]-rl[1]),r[2]+rl[2])] - (1. + (εLf(k0)-ε1f(k0))/(εLf(k0)+ε1f(k0)))*(im/4)*hankelh1(1,k1(k0)*norm(r-rl))*((rl-r)/norm(rl-r))*k1(k0)
+
+        gHomo = greenHomo(k1)
+
+        gtot  = (r::Vector{Float64},rl::Vector{Float64},k::Number=k0) -> gHomo.gTot(r,rl,k) + gfIn.gInd(abs(r[1]-rl[1]),r[2]+rl[2]) + ((εLf(k0)-ε1f(k0))/(εLf(k0)+ε1f(k0)))*(im/4)*hankelh1(0,k1(k0)*norm(mVec(r)-rl))
+        dgif = (r::Vector{Float64},rl::Vector{Float64},k::Number=k0) -> gHomo.DgTot(r,rl,k) + [gfIn.DxgInd(abs(r[1]-rl[1]),r[2]+rl[2])*sign(rl[1]-r[1]); gfIn.DygInd(abs(r[1]-rl[1]),r[2]+rl[2])] - ((εLf(k0)-ε1f(k0))/(εLf(k0)+ε1f(k0)))*(im/4)*hankelh1(1,k1(k0)*norm(mVec(r)-rl))*((rl-mVec(r))/norm(rl-mVec(r)))*k1(k0)
         
         new(gtot,dgif)
     end
@@ -45,15 +49,15 @@ struct greenFunLayerInd <: greenFunct
     DxgInd::Any
     DygInd::Any
     
-    function greenFunLayerInd(k0::Number, SParms::SommerfieldParams,xP::Tuple{Float64, Int64},yP::Tuple{Float64, Int64})
+    function greenFunLayerInd(k0::Number, SParms::SommerfieldParams,xP::Tuple{Float64, Int64},yP::Tuple{Float64,Float64, Int64})
         
         EL,EH,layer = SParms.EL,SParms.EH,SParms.layer
         
         xE,nx = xP
-        yE,ny = yP
+        yB,yE,ny = yP
         
         xdA = collect(LinRange(0.,xE,nx)) 
-        ysA = collect(LinRange(0.,yE,ny))
+        ysA = collect(LinRange(yB,yE,ny))
         
         yT = 0:1:yE
         xT = 0:1:xE
@@ -86,7 +90,7 @@ struct GreenFunctions <: greenFunct
     
     function GreenFunctions(matScatter::Vector{MaterialParams},Opt::String;k0::Number=2π/600,
                 SParms::SommerfieldParams = SommerfieldParams(layerstructure(matScatter,[0. ,],"up"),2k0),
-                xP::Tuple{Float64, Int64} = (200. , 5),yP::Tuple{Float64, Int64} = (40. , 5))
+                xP::Tuple{Float64, Int64} = (200. , 5),yP::Tuple{Float64,Float64, Int64} = (0.,40. , 5))
         
         mt1,mt2 = matScatter[1],matScatter[2]
         

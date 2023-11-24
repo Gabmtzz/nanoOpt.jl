@@ -137,7 +137,7 @@ function constBel(i::Int64,j::Int64,v::Int64,vˡ::Int64,u::Int64,sV::Vector{Floa
         ε1 = layer.mat[1].ε
         εL = layer.mat[end].ε
         
-        return δ(i,j)*δ(v,vˡ)*0.5*(δ(u,1)-δ(u,2)) + (δ(i,j)*δ(v,vˡ)*δ(sV)*δ(u,1)*((εL(k0)-ε1(k0))/(εL(k0)+ε1(k0))))
+        return δ(i,j)*δ(v,vˡ)*0.5*(δ(u,1)-δ(u,2)) + 0.5*(δ(i,j)*δ(v,vˡ)*δ(sV)*δ(u,1)*((εL(k0)-ε1(k0))/(εL(k0)+ε1(k0))))
     end
 end
 
@@ -188,8 +188,6 @@ function BelementSum(i::Int64,j::Int64,u::Int64,m::Int64,v::Int64,vˡ::Int64,k�
     Δ(j,sArr)*s/length(tGr)
 
 end
-
-
 
 function GetMatrixInt(u::Int64,m::Int64,v::Int64,vˡ::Int64,N::Int64,str::Structure,
     k₀::Number,Grf::GreenFunctions,dThr::Number,layer::layerstructure,Opt::String)
