@@ -4,10 +4,10 @@ end
 
 function Get_H0(k₀::Number,n₁::Number,X::Vector{Float64},Y::Vector{Float64},layer::layerstructure,α::Number)
     
-    rt = rtcoeffs(layer,k₀,[k₀*n₁*sin(π/2 - α),],"up")
+    rt = rtcoeffs(layer,k₀,[k₀*n₁*cos(α),],"up")
     r = rt.r.TM[1]#; t = rt.t.TM[1]
     
-    return @. exp(im*k₀*n₁*(cos(α)*X+sin(α)*Y)) + r*exp(-im*k₀*n₁*(cos(α)*X+sin(α)*Y))
+    return @. exp(-im*k₀*n₁*(cos(α)*X+sin(α)*Y)) + r*exp(im*k₀*n₁*(cos(α)*X+sin(α)*Y))
 end
 
 function GetH0Arr(N::Number,SArr::Matrix{Vector{Float64}},k₀::Number,n₁::Number,α::Number)
@@ -295,7 +295,7 @@ function getHₛ(r::Vector{Float64},R::Number,ϕ::Matrix{ComplexF64},H::Matrix{C
 end
 
 function getσₐ(m::Int64,k₀::Vector{Float64},matScatter::Vector{MaterialParams},str::Structure,dThr::Float64,α::Float64,Opt::String="Homo";
-        layer::layerstructure = layerstructure(matScatter,[0. ,],"up"))
+        layer::layerstructure = layerstructure(matScatter,[0. ,],"up"),xP= (10 , 12), yP = (0,10,12))
     _,SArr= getSvec(m,str)
     N = size(SArr,1)
 
@@ -311,7 +311,7 @@ function getσₐ(m::Int64,k₀::Vector{Float64},matScatter::Vector{MaterialPara
             Grf = GreenFunctions(matScatter,Opt)
         else 
             SParms = SommerfieldParams(layer,2k0)
-            Grf = GreenFunctions(matScatter,Opt;k0=k0,SParms=SParms)
+            Grf = GreenFunctions(matScatter,Opt;k0=k0,SParms=SParms,xP=xP,yP=yP)
         end
 
 
