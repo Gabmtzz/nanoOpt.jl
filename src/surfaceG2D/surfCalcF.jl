@@ -310,7 +310,7 @@ function getσₐ(m::Int64,k₀::Vector{Float64},matScatter::Vector{MaterialPara
 
             Grf = GreenFunctions(matScatter,Opt)
         else 
-            SParms = SommerfieldParams(layer,2k0)
+            SParms = SommerfieldParams(layer,3k0)
             Grf = GreenFunctions(matScatter,Opt;k0=k0,SParms=SParms,xP=xP,yP=yP)
         end
 

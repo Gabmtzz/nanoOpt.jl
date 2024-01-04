@@ -8,6 +8,7 @@ abstract type Line end
 include("Material/Material.jl")
 include("Optics/Optics.jl")
 include("Laser/Laser.jl")
+include("Mie/Mie.jl")
 include("stratified/stratified.jl")
 include("surfaceG2D/GFIEM2Dsc.jl")
 include("plasmModes/plasmModes.jl")
