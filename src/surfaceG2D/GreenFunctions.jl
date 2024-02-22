@@ -13,6 +13,32 @@ struct greenHomo <: greenFunct
     end
 end
 
+struct greenAnalytic <: greenFunct
+    gTot::Function
+    DgTot::Function
+
+    function greenAnalytic(k0::Number,layer::layerstructure,opt::String="up")
+        
+        mVec(r::Vector{Float64}) = r.*[1,-1]
+    
+        matA = layer.mat
+        ε1f,εLf = matA[1].ε,matA[end].ε
+        k1 = matA[1].k
+
+        gHomo = greenHomo(k1)
+
+        if opt == "up"
+            gA  = (r::Vector{Float64},rl::Vector{Float64},k::Number=k0) -> gHomo.gTot(r,rl,k)  + ((εLf(k)-ε1f(k))/(εLf(k)+ε1f(k)))*(im/4)*hankelh1(0,k1(k)*norm(mVec(r)-rl))
+            dgA = (r::Vector{Float64},rl::Vector{Float64},k::Number=k0) -> gHomo.DgTot(r,rl,k) - ((εLf(k)-ε1f(k))/(εLf(k)+ε1f(k)))*(im/4)*hankelh1(1,k1(k)*norm(mVec(r)-rl))*((rl-mVec(r))/norm(rl-mVec(r)))*k1(k)
+        elseif opt == "down"
+            gA  = (r::Vector{Float64},rl::Vector{Float64},k::Number=k0) -> ((2εLf(k))/(εLf(k)+ε1f(k)))*gHomo.gTot(r,rl,k)
+            dgA = (r::Vector{Float64},rl::Vector{Float64},k::Number=k0) -> ((2εLf(k))/(εLf(k)+ε1f(k)))*gHomo.DgTot(r,rl,k)
+        end
+
+        new(gA,dgA)
+    end
+end
+
 struct SommerfieldParams <: greenFunct
     EL::Float64
     EH::Float64
@@ -37,8 +63,8 @@ struct greenFunLayer <: greenFunct
 
         gHomo = greenHomo(k1)
 
-        gtot  = (r::Vector{Float64},rl::Vector{Float64},k::Number=k0) -> gHomo.gTot(r,rl,k) + gfIn.gInd(abs(r[1]-rl[1]),r[2]+rl[2]) + ((εLf(k0)-ε1f(k0))/(εLf(k0)+ε1f(k0)))*(im/4)*hankelh1(0,k1(k0)*norm(mVec(r)-rl))
-        dgif = (r::Vector{Float64},rl::Vector{Float64},k::Number=k0) -> gHomo.DgTot(r,rl,k) + [gfIn.DxgInd(abs(r[1]-rl[1]),r[2]+rl[2])*sign(rl[1]-r[1]); gfIn.DygInd(abs(r[1]-rl[1]),r[2]+rl[2])] - ((εLf(k0)-ε1f(k0))/(εLf(k0)+ε1f(k0)))*(im/4)*hankelh1(1,k1(k0)*norm(mVec(r)-rl))*((rl-mVec(r))/norm(rl-mVec(r)))*k1(k0)
+        gtot  = (r::Vector{Float64},rl::Vector{Float64},k::Number=k0) -> gHomo.gTot(r,rl,k) + gfIn.gInd(abs(r[1]-rl[1]),r[2]+rl[2]) + ((εLf(k)-ε1f(k))/(εLf(k)+ε1f(k)))*(im/4)*hankelh1(0,k1(k)*norm(mVec(r)-rl))
+        dgif = (r::Vector{Float64},rl::Vector{Float64},k::Number=k0) -> gHomo.DgTot(r,rl,k) + [gfIn.DxgInd(abs(r[1]-rl[1]),r[2]+rl[2])*sign(rl[1]-r[1]); gfIn.DygInd(abs(r[1]-rl[1]),r[2]+rl[2])] - ((εLf(k)-ε1f(k))/(εLf(k)+ε1f(k)))*(im/4)*hankelh1(1,k1(k)*norm(mVec(r)-rl))*((rl-mVec(r))/norm(rl-mVec(r)))*k1(k)
         
         new(gtot,dgif)
     end

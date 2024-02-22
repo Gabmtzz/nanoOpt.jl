@@ -2,12 +2,24 @@ function Get_H0(k₀::Number,n₁::Number,X::Vector{Float64},Y::Vector{Float64},
     return exp.(im*k₀*n₁.*(cos(α)*X + sin(α)*Y))
 end
 
-function Get_H0(k₀::Number,n₁::Number,X::Vector{Float64},Y::Vector{Float64},layer::layerstructure,α::Number)
+function Get_H0(k₀::Number,X::Vector{Float64},Y::Vector{Float64},layer::layerstructure,α::Number)
     
+    k₁ = layer.mat[1].k(k₀); k₂ = layer.mat[2].k(k₀)
+    n₁ = layer.mat[1].n(k₀); n₂ = layer.mat[2].n(k₀)
     rt = rtcoeffs(layer,k₀,[k₀*n₁*cos(α),],"up")
-    r = rt.r.TM[1]#; t = rt.t.TM[1]
+    r = rt.r.TM[1]; t = rt.t.TM[1]
     
-    return @. exp(-im*k₀*n₁*(cos(α)*X+sin(α)*Y)) + r*exp(im*k₀*n₁*(cos(α)*X+sin(α)*Y))
+    HArr = Array{ComplexF64}(undef,length(X))
+
+    αRef = acos((n₁/n₂)*cos(α))
+    for i ∈ eachindex(HArr)
+        if Y[i] ≥ 0.0
+            HArr[i] = exp(-im*k₁*(cos(α)*X[i]+sin(α)*Y[i])) + r*exp(im*k₁*(cos(α)*X[i]+sin(α)*Y[i]))
+        else
+            HArr[i] = t*exp(-im*k₂*(cos(αRef)*X[i]+sin(αRef)*Y[i]))
+        end 
+    end
+    HArr
 end
 
 function GetH0Arr(N::Number,SArr::Matrix{Vector{Float64}},k₀::Number,n₁::Number,α::Number)
@@ -31,7 +43,7 @@ function GetH0Arr(N::Number,SArr::Matrix{Vector{Float64}},k₀::Number,n₁::Num
         SVec = SArr[:,j]
         X = [SVec[i][1] for i in 1:N]; Y = [SVec[i][2] for i in 1:N]
     
-        H₀Arr[:,j] = Get_H0(k₀,n₁,X,Y,layer,αR)
+        H₀Arr[:,j] = Get_H0(k₀,X,Y,layer,αR)
     end
     return H₀Arr
 end
@@ -48,6 +60,31 @@ function Get_E0(k₀::Number,n₁::Number,X::Vector{Float64},Y::Vector{Float64},
 
     for i ∈ eachindex(E₀Arr)
         E₀Arr[i] = √(μ₀/ε₀)*(1/n₁)*H₀Arr[i]*[-sin(αᵣ); cos(αᵣ)]
+    end
+
+    E₀Arr
+end
+
+function Get_E0(k₀::Number,layer::layerstructure,X::Vector{Float64},Y::Vector{Float64},α::Number)
+    μ₀ = 1.25663706144e-6
+    ε₀ = 8.85418781762e-12
+
+    αᵣ = (π*α)/180
+
+    k₁ = layer.mat[1].k(k₀); k₂ = layer.mat[2].k(k₀)
+    n₁ = layer.mat[1].n(k₀); n₂ = layer.mat[2].n(k₀)
+    rt = rtcoeffs(layer,k₀,[k₀*n₁*cos(αᵣ),],"up")
+    r = rt.r.TM[1]; t = rt.t.TM[1]
+
+    E₀Arr = Array{Array{ComplexF64,1}}(undef,length(X))
+    
+    αRef = acos((n₁/n₂)*cos(αᵣ))
+    for i ∈ eachindex(E₀Arr)
+        if Y[i] ≥ 0.0
+            E₀Arr[i] = √(μ₀/ε₀)*(1/n₁)*[sin(αᵣ); -cos(αᵣ)]*(exp(-im*k₁*(cos(αᵣ)*X[i]+sin(αᵣ)*Y[i])) - r*exp(im*k₁*(cos(αᵣ)*X[i]+sin(αᵣ)*Y[i])))
+        else
+            E₀Arr[i] = √(μ₀/ε₀)*(1/n₂)*[sin(αRef); -cos(αRef)]*t*exp(-im*k₂*(cos(αRef)*X[i]+sin(αRef)*Y[i]))
+        end
     end
 
     E₀Arr
@@ -301,7 +338,7 @@ function getσₐ(m::Int64,k₀::Vector{Float64},matScatter::Vector{MaterialPara
 
     σₐArr = zeros(length(k₀))
 
-    for i ∈ eachindex(k₀)
+    @threads for i ∈ eachindex(k₀)
         k0 = k₀[i]
         n₁ = matScatter[1].n
         n₂ = matScatter[2].n
@@ -310,7 +347,7 @@ function getσₐ(m::Int64,k₀::Vector{Float64},matScatter::Vector{MaterialPara
 
             Grf = GreenFunctions(matScatter,Opt)
         else 
-            SParms = SommerfieldParams(layer,3k0)
+            SParms = SommerfieldParams(layer,3k0,9e-3)
             Grf = GreenFunctions(matScatter,Opt;k0=k0,SParms=SParms,xP=xP,yP=yP)
         end
 
@@ -340,7 +377,7 @@ function getσₑ(m::Int64,k₀::Vector{Float64},matScatter::Vector{MaterialPara
     Θₛ = [(2π/Nₛ)*(i-(1/2)) for i ∈ 1:Nₛ]
     R= r*[cos.(Θₛ) sin.(Θₛ)]
 
-    for i ∈ eachindex(k₀)
+    @threads for i ∈ eachindex(k₀)
         k0 = k₀[i]
         n₁ = matScatter[1].n
         n₂ = matScatter[2].n
@@ -349,7 +386,7 @@ function getσₑ(m::Int64,k₀::Vector{Float64},matScatter::Vector{MaterialPara
 
             Grf = GreenFunctions(matScatter,Opt)
         else 
-            SParms = SommerfieldParams(layer,2k0)
+            SParms = SommerfieldParams(layer,3k0,9e-3)
             Grf = GreenFunctions(matScatter,Opt;k0=k0,SParms=SParms)
         end
 
@@ -373,7 +410,7 @@ function getσₛ(m::Int64,k₀::Vector{Float64},matScatter::Vector{MaterialPara
     Θₛ = [(2π/Nₛ)*(i-(1/2)) for i ∈ 1:Nₛ]; ΔΘₛ = Θₛ[2] - Θₛ[1]
     R= r*[cos.(Θₛ) sin.(Θₛ)]
 
-    for i ∈ eachindex(k₀)
+    @threads for i ∈ eachindex(k₀)
         k0 = k₀[i]
         n₁ = matScatter[1].n
         n₂ = matScatter[2].n
@@ -382,7 +419,7 @@ function getσₛ(m::Int64,k₀::Vector{Float64},matScatter::Vector{MaterialPara
 
             Grf = GreenFunctions(matScatter,Opt)
         else 
-            SParms = SommerfieldParams(layer,2k0)
+            SParms = SommerfieldParams(layer,3k0,9e-3)
             Grf = GreenFunctions(matScatter,Opt;k0=k0,SParms=SParms)
         end
 

@@ -1,5 +1,7 @@
 using LazyGrids,Interpolations,LinearAlgebra,DifferentialEquations,CSV,DataFrames,FFTW,SpecialFunctions
 
+using Base.Threads
+
 abstract type Material end
 abstract type Field end
 abstract type Structure end

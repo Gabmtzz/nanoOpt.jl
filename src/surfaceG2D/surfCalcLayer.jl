@@ -71,9 +71,9 @@ function getσOUP(m::Int,k₀,Rf::Number,matScatter::Vector{MaterialParams},str:
     
     σOUP = Array{Float64}(undef,length(k₀))
 
-    for i ∈ eachindex(k₀)
+    @threads for i ∈ eachindex(k₀)
         k0 = k₀[i]
-        SParms = SommerfieldParams(layer,4k0)
+        SParms = SommerfieldParams(layer,3k0,9e-3)
         Grf = GreenFunctions(matScatter,"layer";xP= (xm , 10), yP = (ym,yp,10), SParms = SParms)
         H,ϕ = getHϕ(m,str,k0,Grf,n₂,n₁,dThr,α,layer,"layer")
     
@@ -101,7 +101,7 @@ function getσEXT(m::Int,k₀,Rf::Number,matScatter::Vector{MaterialParams},str:
     yp = 2maximum(Y)+2
     ym = 2minimum(Y)
 
-    for i ∈ eachindex(k₀)
+    @threads for i ∈ eachindex(k₀)
         k0 = k₀[i]
         
         k₁ = layer.mat[1].k(k0)
@@ -112,14 +112,19 @@ function getσEXT(m::Int,k₀,Rf::Number,matScatter::Vector{MaterialParams},str:
 
         rtC = rtcoeffs(layer,k0,[k₁*cos(αᵣ),],"up")
         rp = rtC.r.TM[1]; tp = rtC.t.TM[1] 
+
+        θRadR = π/2 - αᵣ 
+        θRadRf =  asin((n₁/nₙ)*sin(θRadR))
+
+        αRadT = -θRadRf - π/2
         
-        SParms = SommerfieldParams(layer,4k0)
+        SParms = SommerfieldParams(layer,3k0,9e-3)
         Grf = GreenFunctions(matScatter,"layer";xP= (xm , 10), yP = (ym,yp,10), SParms = SParms)
         H,ϕ = getHϕ(m,str,k0,Grf,matScatter[2].n,matScatter[1].n,dThr,α,layer,"layer")
         
         c = layer.mat[end].n(k0)/layer.mat[1].n(k0)
-        σEXTu[i] = -2sqrt(2π/(k₁))*real(rp*conj(getHₛ(π/2,Rf,ϕ,H,k0,m,str,layer))*sqrt(Rf)*exp(im*k₁*Rf)*exp(-im*π/4))
-        σEXTd[i] = -2*c*sqrt(2π/(kₙ))*real(tp*conj(getHₛ(-π/2,Rf,ϕ,H,k0,m,str,layer))*sqrt(Rf)*exp(im*kₙ*Rf)*exp(-im*π/4))
+        σEXTu[i] = -2sqrt(2π/(k₁))*real(rp*conj(getHₛ(αᵣ,Rf,ϕ,H,k0,m,str,layer))*sqrt(Rf)*exp(im*k₁*Rf)*exp(-im*π/4))
+        σEXTd[i] = -2*c*sqrt(2π/(kₙ))*real(tp*conj(getHₛ(αRadT,Rf,ϕ,H,k0,m,str,layer))*sqrt(Rf)*exp(im*kₙ*Rf)*exp(-im*π/4))
     end
 
     σEXTu,σEXTd
